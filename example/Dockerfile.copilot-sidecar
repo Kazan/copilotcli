@@ -4,7 +4,7 @@
 # The CLI listens on a configurable TCP port (default: 4321) and communicates via JSON-RPC.
 #
 # Build:
-#   docker build -t copilot-cli-sidecar:latest -f pkg/copilotcli/example/Dockerfile.copilot-sidecar .
+#   docker build -t copilot-cli-sidecar:latest -f example/Dockerfile.copilot-sidecar .
 #
 # Run standalone (for testing):
 #   docker run -p 4321:4321 -e GITHUB_TOKEN=ghp_xxx copilot-cli-sidecar:latest
@@ -13,8 +13,8 @@ FROM debian:bookworm-slim AS base
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

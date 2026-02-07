@@ -13,7 +13,7 @@ Reusable Go package for integrating with the [GitHub Copilot CLI SDK](https://gi
 │  ┌───────────────────┐     ┌──────────────────────┐  │
 │  │   Your Go Service  │     │  copilot-cli sidecar │  │
 │  │                    │     │                      │  │
-│  │  pkg/copilotcli    │────▶│  copilot --headless  │  │
+│  │  copilotcli        │────▶│  copilot --headless  │  │
 │  │  (this package)    │TCP  │  --port 4321         │  │
 │  │                    │4321 │  --no-auto-update    │  │
 │  │  POST /api/copilot │     │                      │  │

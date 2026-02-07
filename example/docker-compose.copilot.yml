@@ -3,18 +3,18 @@
 # Simulates the K8s sidecar pattern locally using Docker Compose.
 #
 # Usage:
-#   docker compose -f pkg/copilotcli/example/docker-compose.copilot.yml up
+#   docker compose -f example/docker-compose.copilot.yml up
 #
 # Requirements:
 #   - Set GITHUB_TOKEN in your environment or .env file
 #   - Build the sidecar image first:
-#     docker build -t copilot-cli-sidecar:latest -f pkg/copilotcli/example/Dockerfile.copilot-sidecar .
+#     docker build -t copilot-cli-sidecar:latest -f example/Dockerfile.copilot-sidecar .
 
 services:
   copilot-sidecar:
     build:
-      context: ../../..
-      dockerfile: pkg/copilotcli/example/Dockerfile.copilot-sidecar
+      context: ..
+      dockerfile: example/Dockerfile.copilot-sidecar
     container_name: copilot-sidecar
     ports:
       - "4321:4321"
