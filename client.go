@@ -27,7 +27,7 @@ type StreamEvent struct {
 // headless Copilot CLI sidecar.
 type Client struct {
 	cfg       *cfg
-	sdk       *copilot.Client
+	sdk       sdkClient
 	connected bool
 	mu        sync.RWMutex
 }
@@ -55,7 +55,7 @@ func New(opts ...Option) (*Client, error) {
 
 	return &Client{
 		cfg: c,
-		sdk: sdkClient,
+		sdk: &sdkClientAdapter{c: sdkClient},
 	}, nil
 }
 
@@ -205,7 +205,7 @@ func (c *Client) QueryWithSession(ctx context.Context, sessionID, prompt string)
 
 	return &QueryResult{
 		Content:   content,
-		SessionID: session.SessionID,
+		SessionID: session.ID(),
 	}, nil
 }
 
@@ -276,7 +276,7 @@ func (c *Client) QueryStream(ctx context.Context, sessionID, prompt string) (<-c
 		return nil, "", fmt.Errorf("sending message: %w", err)
 	}
 
-	return events, session.SessionID, nil
+	return events, session.ID(), nil
 }
 
 // DestroySession deletes a session on the sidecar.
@@ -293,7 +293,7 @@ func (c *Client) DestroySession(ctx context.Context, sessionID string) error {
 
 // getOrCreateSession resumes an existing session or creates a new one with
 // the client's configured tools, model, and provider settings.
-func (c *Client) getOrCreateSession(ctx context.Context, sessionID string) (*copilot.Session, error) {
+func (c *Client) getOrCreateSession(ctx context.Context, sessionID string) (sdkSession, error) {
 	if sessionID != "" {
 		resumeCfg := &copilot.ResumeSessionConfig{
 			Model:     c.cfg.model,
