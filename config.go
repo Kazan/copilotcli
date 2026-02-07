@@ -28,8 +28,11 @@ const (
 type ProviderType string
 
 const (
-	ProviderOpenAI    ProviderType = "openai"
-	ProviderAzure     ProviderType = "azure"
+	// ProviderOpenAI selects an OpenAI-compatible provider.
+	ProviderOpenAI ProviderType = "openai"
+	// ProviderAzure selects an Azure OpenAI provider.
+	ProviderAzure ProviderType = "azure"
+	// ProviderAnthropic selects an Anthropic provider.
 	ProviderAnthropic ProviderType = "anthropic"
 )
 

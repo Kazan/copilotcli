@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testPromptBody = `{"prompt": "hello"}`
+
 func TestNewQueryHandler(t *testing.T) {
 	client, err := New()
 	require.NoError(t, err)
@@ -116,7 +118,7 @@ func TestNewStreamHandler(t *testing.T) {
 	})
 
 	t.Run("streaming not supported by ResponseWriter", func(t *testing.T) {
-		body := `{"prompt": "hello"}`
+		body := testPromptBody
 		req := httptest.NewRequest(http.MethodPost, "/api/copilot/stream", bytes.NewReader([]byte(body)))
 		// Use a writer that does NOT implement http.Flusher.
 		rec := &nonFlushableWriter{header: make(http.Header)}
@@ -144,7 +146,7 @@ func TestNewHealthHandler(t *testing.T) {
 	handler := NewHealthHandler(client)
 
 	t.Run("returns unhealthy when not connected", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/copilot/health", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/copilot/health", http.NoBody)
 		rec := httptest.NewRecorder()
 
 		handler(rec, req)
@@ -191,7 +193,7 @@ func TestNewQueryHandler_InternalError(t *testing.T) {
 	client.connected = true
 	handler := NewQueryHandler(client)
 
-	body := `{"prompt": "hello"}`
+	body := testPromptBody
 	req := httptest.NewRequest(http.MethodPost, "/api/copilot/query", bytes.NewReader([]byte(body)))
 	rec := httptest.NewRecorder()
 
@@ -213,7 +215,7 @@ func TestNewStreamHandler_InternalError(t *testing.T) {
 	client.connected = true
 	handler := NewStreamHandler(client)
 
-	body := `{"prompt": "hello"}`
+	body := testPromptBody
 	req := httptest.NewRequest(http.MethodPost, "/api/copilot/stream", bytes.NewReader([]byte(body)))
 	rec := httptest.NewRecorder()
 
@@ -245,7 +247,7 @@ func TestWriteSSE(t *testing.T) {
 		body := rec.Body.String()
 		assert.Contains(t, body, "data: ")
 		assert.Contains(t, body, `"delta":"hello"`)
-		assert.True(t, len(body) > 0)
+		assert.NotEmpty(t, body)
 	})
 
 	t.Run("handles unmarshalable data gracefully", func(t *testing.T) {

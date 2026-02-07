@@ -1,3 +1,6 @@
+// Package copilotcli provides a high-level Go client for the headless Copilot CLI sidecar.
+// It wraps the Copilot SDK and offers query, streaming, retry, and HTTP handler
+// functionality for integrating Copilot into backend services.
 package copilotcli
 
 import (
@@ -181,6 +184,8 @@ func (c *Client) QueryWithSession(ctx context.Context, sessionID, prompt string)
 			evtErr = fmt.Errorf("copilot: %s", msg)
 			mu.Unlock()
 			close(done)
+		default:
+			// Ignore other event types.
 		}
 	})
 	defer unsubscribe()
@@ -211,7 +216,7 @@ func (c *Client) QueryWithSession(ctx context.Context, sessionID, prompt string)
 
 // QueryStream sends a prompt and returns a channel of streaming events plus
 // the session ID. The channel is closed when the response completes.
-func (c *Client) QueryStream(ctx context.Context, sessionID, prompt string) (<-chan StreamEvent, string, error) {
+func (c *Client) QueryStream(ctx context.Context, sessionID, prompt string) (<-chan StreamEvent, string, error) { //nolint:gocritic // named returns not used to keep internal channel writable
 	if prompt == "" {
 		return nil, "", ErrEmptyPrompt
 	}
@@ -262,6 +267,8 @@ func (c *Client) QueryStream(ctx context.Context, sessionID, prompt string) (<-c
 			}
 			events <- StreamEvent{Error: fmt.Errorf("copilot: %s", msg)}
 			close(events)
+		default:
+			// Ignore other event types.
 		}
 	})
 

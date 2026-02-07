@@ -18,7 +18,7 @@ func TestToolDefinitionToSDKTool(t *testing.T) {
 				{Name: "input", Type: "string", Description: "The input value", Required: true},
 				{Name: "verbose", Type: "boolean", Description: "Enable verbose output", Required: false},
 			},
-			Handler: func(args map[string]any) (string, error) {
+			Handler: func(_ map[string]any) (string, error) {
 				return "result", nil
 			},
 		}
@@ -49,7 +49,7 @@ func TestToolDefinitionToSDKTool(t *testing.T) {
 		td := ToolDefinition{
 			Name:        "no_params",
 			Description: "No params needed",
-			Handler:     func(args map[string]any) (string, error) { return "ok", nil },
+			Handler:     func(_ map[string]any) (string, error) { return "ok", nil },
 		}
 
 		tool := td.toSDKTool()
@@ -92,7 +92,7 @@ func TestToolHandler_Invocation(t *testing.T) {
 		td := ToolDefinition{
 			Name:        "failing_tool",
 			Description: "Always fails",
-			Handler: func(args map[string]any) (string, error) {
+			Handler: func(_ map[string]any) (string, error) {
 				return "", fmt.Errorf("database connection lost")
 			},
 		}
@@ -114,7 +114,7 @@ func TestToolHandler_Invocation(t *testing.T) {
 		td := ToolDefinition{
 			Name:        "typed_tool",
 			Description: "Expects map args",
-			Handler: func(args map[string]any) (string, error) {
+			Handler: func(_ map[string]any) (string, error) {
 				return "ok", nil
 			},
 		}
@@ -130,7 +130,7 @@ func TestToolHandler_Invocation(t *testing.T) {
 	t.Run("nil arguments returns error", func(t *testing.T) {
 		td := ToolDefinition{
 			Name:    "nil_args",
-			Handler: func(args map[string]any) (string, error) { return "ok", nil },
+			Handler: func(_ map[string]any) (string, error) { return "ok", nil },
 		}
 
 		tool := td.toSDKTool()
@@ -147,7 +147,7 @@ func TestDefineTypedTool(t *testing.T) {
 		Query string `json:"query" description:"The search query"`
 	}
 
-	tool := DefineTypedTool("search", "Search for items", func(params lookupParams, inv copilot.ToolInvocation) (any, error) {
+	tool := DefineTypedTool("search", "Search for items", func(params lookupParams, _ copilot.ToolInvocation) (any, error) {
 		return map[string]string{"result": "found: " + params.Query}, nil
 	})
 
@@ -165,7 +165,7 @@ func TestToolDefinition_AllRequiredParams(t *testing.T) {
 			{Name: "b", Type: "number", Description: "param b", Required: true},
 			{Name: "c", Type: "boolean", Description: "param c", Required: true},
 		},
-		Handler: func(args map[string]any) (string, error) { return "ok", nil },
+		Handler: func(_ map[string]any) (string, error) { return "ok", nil },
 	}
 
 	tool := td.toSDKTool()
@@ -184,7 +184,7 @@ func TestToolDefinition_NoRequiredParams(t *testing.T) {
 			{Name: "x", Type: "string", Description: "optional x", Required: false},
 			{Name: "y", Type: "number", Description: "optional y", Required: false},
 		},
-		Handler: func(args map[string]any) (string, error) { return "ok", nil },
+		Handler: func(_ map[string]any) (string, error) { return "ok", nil },
 	}
 
 	tool := td.toSDKTool()
