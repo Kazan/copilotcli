@@ -1,0 +1,43 @@
+# Copilot CLI Sidecar
+#
+# Runs the GitHub Copilot CLI in headless server mode for use as a Kubernetes sidecar.
+# The CLI listens on a configurable TCP port (default: 4321) and communicates via JSON-RPC.
+#
+# Build:
+#   docker build -t copilot-cli-sidecar:latest -f pkg/copilotcli/example/Dockerfile.copilot-sidecar .
+#
+# Run standalone (for testing):
+#   docker run -p 4321:4321 -e GITHUB_TOKEN=ghp_xxx copilot-cli-sidecar:latest
+
+FROM debian:bookworm-slim AS base
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -g 1001 copilot && \
+    useradd -u 1001 -g copilot -m -s /bin/bash copilot
+
+# Install Copilot CLI
+# Pin the version to match the SDK's expected protocol version (v2).
+# Update this version when bumping the github.com/github/copilot-sdk/go dependency.
+ARG COPILOT_CLI_VERSION=latest
+RUN curl -fsSL https://copilot.github.com/install.sh | sh
+
+USER copilot
+WORKDIR /home/copilot
+
+# Default port for JSON-RPC over TCP
+ENV COPILOT_PORT=4321
+
+EXPOSE ${COPILOT_PORT}
+
+# Health check: TCP probe on the server port
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD bash -c "echo > /dev/tcp/localhost/${COPILOT_PORT}" || exit 1
+
+ENTRYPOINT ["copilot", "--headless", "--no-auto-update"]
+CMD ["--port", "4321"]

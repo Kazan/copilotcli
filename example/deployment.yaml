@@ -1,0 +1,181 @@
+# Copilot CLI Sidecar - Kubernetes Deployment Example
+#
+# This is a reference manifest showing how to deploy a Go service
+# with a Copilot CLI sidecar container. Adapt to your Helm chart or Kustomize setup.
+#
+# Architecture:
+#   Pod
+#   ├── app container (Go service, port 8080)
+#   │   └── connects to localhost:4321 (sidecar)
+#   └── copilot-sidecar container (Copilot CLI headless, port 4321)
+#       └── outbound HTTPS to api.github.com / LLM provider
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: copilot-secrets
+  namespace: default
+type: Opaque
+stringData:
+  # Option A: GitHub Copilot token (requires Copilot subscription)
+  github-token: "ghp_your_token_here"
+
+  # Option B: BYOK — set these instead of github-token
+  # openai-api-key: "sk-your_key_here"
+  # azure-openai-api-key: "your_azure_key"
+  # anthropic-api-key: "sk-ant-your_key"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service
+  namespace: default
+  labels:
+    app: my-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-service
+  template:
+    metadata:
+      labels:
+        app: my-service
+    spec:
+      terminationGracePeriodSeconds: 10
+
+      containers:
+        # ─── Main application container ────────────────────────────
+        - name: my-service
+          image: your-ecr/my-service:latest
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            # Copilot CLI sidecar connection (pod-internal, no service needed)
+            - name: COPILOT_CLI_URL
+              value: "localhost:4321"
+            - name: COPILOT_LOG_LEVEL
+              value: "error"
+            - name: COPILOT_MODEL
+              value: "gpt-4o"
+            - name: COPILOT_AUTH_MODE
+              value: "github"  # or "byok"
+            - name: COPILOT_STREAMING
+              value: "false"
+            - name: COPILOT_CONN_TIMEOUT
+              value: "15s"
+            - name: COPILOT_RETRY_ATTEMPTS
+              value: "10"
+
+            # BYOK settings (uncomment if using BYOK auth mode)
+            # - name: COPILOT_PROVIDER_TYPE
+            #   value: "openai"
+            # - name: COPILOT_PROVIDER_BASE_URL
+            #   value: "https://api.openai.com/v1"
+            # - name: COPILOT_PROVIDER_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: copilot-secrets
+            #       key: openai-api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+        # ─── Copilot CLI sidecar container ─────────────────────────
+        - name: copilot-sidecar
+          image: your-ecr/copilot-cli-sidecar:latest
+          args: ["--port", "4321"]
+          ports:
+            - containerPort: 4321
+              name: copilot-rpc
+              protocol: TCP
+          env:
+            # GitHub auth (Option A)
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: copilot-secrets
+                  key: github-token
+
+            # For BYOK (Option B), set the relevant env vars on this container:
+            # - name: OPENAI_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: copilot-secrets
+            #       key: openai-api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # TCP readiness probe — checks the sidecar is accepting connections
+          readinessProbe:
+            tcpSocket:
+              port: 4321
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: 4321
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          # Ensure sidecar gets SIGTERM for graceful shutdown
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "2"]
+
+---
+# Network policy: allow sidecar egress to GitHub API / LLM providers
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: copilot-sidecar-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: my-service
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS to GitHub API and LLM providers
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow pod-internal communication (localhost sidecar)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: my-service
