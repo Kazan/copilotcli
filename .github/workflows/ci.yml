@@ -9,8 +9,9 @@ on:
 permissions:
   contents: read
 
-env:
-  GOFLAGS: -mod=vendor
+concurrency:
+  group: ciworkflow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -23,6 +24,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Vendor dependencies (go.mod)
+        run: go mod vendor
 
       - name: Run tests
         run: go test -race -count=1 -coverprofile=coverage.out ./...
@@ -40,6 +44,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Vendor dependencies (go.mod)
+        run: go mod vendor
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
