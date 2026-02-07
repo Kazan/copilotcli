@@ -1,4 +1,4 @@
-# pkg/copilotcli
+# copilotcli
 
 Reusable Go package for integrating with the [GitHub Copilot CLI SDK](https://github.com/github/copilot-sdk) via a Kubernetes sidecar pattern.
 
@@ -34,7 +34,11 @@ The Copilot CLI runs as a headless JSON-RPC server in a sidecar container. This 
 go get github.com/github/copilot-sdk/go
 ```
 
-There is no separate installation for this package — it lives in `pkg/copilotcli` and imports the SDK as a dependency.
+There is no separate installation for this package — add it to your module and it imports the SDK as a dependency.
+
+```bash
+go get github.com/kazan/copilotcli
+```
 
 ## Quick Start
 
@@ -54,7 +58,7 @@ import (
     "syscall"
     "time"
 
-    "your-module/pkg/copilotcli"
+    "github.com/kazan/copilotcli"
 )
 
 func main() {
@@ -156,6 +160,7 @@ client, err := copilotcli.New(
 ```
 
 For Azure OpenAI:
+
 ```go
 client, err := copilotcli.New(
     copilotcli.WithBYOK(copilotcli.ProviderAzure, "https://my-resource.openai.azure.com", "azure-key"),
@@ -168,6 +173,7 @@ client, err := copilotcli.New(
 See [example/deployment.yaml](example/deployment.yaml) for a complete reference manifest.
 
 Key points:
+
 - Sidecar listens on `localhost:4321` (pod-internal, no Service/Ingress needed)
 - App connects via `COPILOT_CLI_URL=localhost:4321`
 - TCP readiness probe on port 4321 ensures sidecar is ready
@@ -178,10 +184,10 @@ Key points:
 
 ```bash
 # Start the sidecar locally
-docker compose -f pkg/copilotcli/example/docker-compose.copilot.yml up
+docker compose -f example/docker-compose.copilot.yml up
 
 # Or build and run manually
-docker build -t copilot-cli-sidecar:latest -f pkg/copilotcli/example/Dockerfile.copilot-sidecar .
+docker build -t copilot-cli-sidecar:latest -f example/Dockerfile.copilot-sidecar .
 docker run -p 4321:4321 -e GITHUB_TOKEN=$GITHUB_TOKEN copilot-cli-sidecar:latest
 ```
 
@@ -227,25 +233,26 @@ stockTool := copilotcli.DefineTypedTool("check_stock", "Check stock in a specifi
 
 ## Limitations
 
-| Limitation | Details |
-|---|---|
-| **Technical Preview** | SDK v0.1.x — API may change, not production-grade |
-| **No official CLI image** | Must build your own sidecar Docker image |
-| **Protocol version pinning** | SDK and CLI must match protocol version (currently v2) |
-| **Copilot subscription** | Required for GitHub auth mode; BYOK avoids this |
-| **Billing** | Each prompt counts toward premium request quota (GitHub auth) |
-| **CLI auto-updates** | Must use `--no-auto-update` in production |
-| **No Windows sidecar** | Sidecar pattern requires Linux containers |
+| Limitation                   | Details                                                       |
+| ---------------------------- | ------------------------------------------------------------- |
+| **Technical Preview**        | SDK v0.1.x — API may change, not production-grade             |
+| **No official CLI image**    | Must build your own sidecar Docker image                      |
+| **Protocol version pinning** | SDK and CLI must match protocol version (currently v2)        |
+| **Copilot subscription**     | Required for GitHub auth mode; BYOK avoids this               |
+| **Billing**                  | Each prompt counts toward premium request quota (GitHub auth) |
+| **CLI auto-updates**         | Must use `--no-auto-update` in production                     |
+| **No Windows sidecar**       | Sidecar pattern requires Linux containers                     |
 
 ## Package Structure
 
 ```
-pkg/copilotcli/
+copilotcli/
 ├── config.go      # Internal cfg struct, defaults, auth/provider types
 ├── options.go     # Functional options (WithCLIURL, WithModel, WithBYOK, etc.)
 ├── client.go      # Core client: New, Start, Stop, Query, QueryStream
 ├── tools.go       # Tool definitions and SDK conversion
 ├── handler.go     # HTTP handlers (query, stream SSE, health)
 ├── errors.go      # Sentinel errors
+├── example/       # Kubernetes & Docker deployment examples
 └── README.md      # This file
 ```
