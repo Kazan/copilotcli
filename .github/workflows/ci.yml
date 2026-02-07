@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GOFLAGS: -mod=vendor
+
 jobs:
   test:
     name: Tests
@@ -43,7 +46,6 @@ jobs:
         with:
           version: v2.7
           only-new-issues: ${{ github.event_name == 'pull_request' }}
-          args: --modules-download-mode "vendor"
 
   govulncheck:
     name: Vulnerability Check
