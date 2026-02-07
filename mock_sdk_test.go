@@ -108,7 +108,7 @@ func (m *mockSDKSession) Abort(ctx context.Context) error {
 }
 
 // emit dispatches an event to all registered handlers. Thread-safe.
-func (m *mockSDKSession) emit(event copilot.SessionEvent) {
+func (m *mockSDKSession) emit(event *copilot.SessionEvent) {
 	m.mu.Lock()
 	handlers := make([]func(event copilot.SessionEvent), len(m.handlers))
 	copy(handlers, m.handlers)
@@ -116,7 +116,7 @@ func (m *mockSDKSession) emit(event copilot.SessionEvent) {
 
 	for _, h := range handlers {
 		if h != nil {
-			h(event)
+			h(*event)
 		}
 	}
 }

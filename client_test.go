@@ -63,8 +63,8 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("WithTools appends tool definitions", func(t *testing.T) {
-		tool1 := ToolDefinition{Name: "t1", Handler: func(args map[string]any) (string, error) { return "", nil }}
-		tool2 := ToolDefinition{Name: "t2", Handler: func(args map[string]any) (string, error) { return "", nil }}
+		tool1 := ToolDefinition{Name: "t1", Handler: func(_ map[string]any) (string, error) { return "", nil }}
+		tool2 := ToolDefinition{Name: "t2", Handler: func(_ map[string]any) (string, error) { return "", nil }}
 
 		client, err := New(
 			WithTools(tool1),
@@ -209,7 +209,7 @@ func TestClient_Stop(t *testing.T) {
 		assert.False(t, client.IsConnected())
 
 		err = client.Stop()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, client.IsConnected())
 	})
 }
@@ -219,7 +219,7 @@ func TestClient_QueryStreamEmptyPrompt(t *testing.T) {
 	require.NoError(t, err)
 
 	ch, sid, err := client.QueryStream(t.Context(), "", "")
-	assert.ErrorIs(t, err, ErrEmptyPrompt)
+	require.ErrorIs(t, err, ErrEmptyPrompt)
 	assert.Nil(t, ch)
 	assert.Empty(t, sid)
 }
@@ -264,7 +264,7 @@ func TestBuildSessionConfig(t *testing.T) {
 		tool := ToolDefinition{
 			Name:        "lookup",
 			Description: "Look up data",
-			Handler:     func(args map[string]any) (string, error) { return "ok", nil },
+			Handler:     func(_ map[string]any) (string, error) { return "ok", nil },
 		}
 		client, err := New(WithTools(tool))
 		require.NoError(t, err)
@@ -344,12 +344,12 @@ func TestSDKTools(t *testing.T) {
 			Parameters: []ToolParameter{
 				{Name: "x", Type: "string", Description: "param x", Required: true},
 			},
-			Handler: func(args map[string]any) (string, error) { return "a", nil },
+			Handler: func(_ map[string]any) (string, error) { return "a", nil },
 		}
 		td2 := ToolDefinition{
 			Name:        "tool_b",
 			Description: "Tool B",
-			Handler:     func(args map[string]any) (string, error) { return "b", nil },
+			Handler:     func(_ map[string]any) (string, error) { return "b", nil },
 		}
 
 		client, err := New(WithTools(td1, td2))
@@ -398,7 +398,7 @@ func TestClient_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		err = client.Start(t.Context())
-		assert.ErrorIs(t, err, ErrSidecarUnavailable)
+		require.ErrorIs(t, err, ErrSidecarUnavailable)
 		assert.False(t, client.IsConnected())
 	})
 
@@ -426,7 +426,7 @@ func TestClient_Start(t *testing.T) {
 		defer cancel()
 
 		err = client.Start(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.False(t, client.IsConnected())
 	})
 }
@@ -454,7 +454,7 @@ func TestClient_PingConnected(t *testing.T) {
 
 	err = client.Ping(t.Context())
 	// The SDK isn't started so this should return an error (but NOT ErrNotConnected).
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrNotConnected)
 }
 
@@ -466,7 +466,7 @@ func TestClient_QueryWithSession_ConnectedButSDKNotStarted(t *testing.T) {
 
 	// New session (empty sessionID) — will fail at CreateSession since SDK isn't started.
 	_, err = client.QueryWithSession(t.Context(), "", "hello")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session setup")
 }
 
@@ -481,7 +481,7 @@ func TestClient_QueryWithSession_ResumeSession(t *testing.T) {
 
 	// Resuming session — will fail at ResumeSessionWithOptions since SDK isn't started.
 	_, err = client.QueryWithSession(t.Context(), "existing-session-id", "hello")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session setup")
 }
 
@@ -492,7 +492,7 @@ func TestClient_QueryStream_ConnectedButSDKNotStarted(t *testing.T) {
 	client.connected = true
 
 	ch, sid, err := client.QueryStream(t.Context(), "", "hello")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session setup")
 	assert.Nil(t, ch)
 	assert.Empty(t, sid)
@@ -507,7 +507,7 @@ func TestClient_QueryStream_ResumeSession(t *testing.T) {
 	client.connected = true
 
 	ch, sid, err := client.QueryStream(t.Context(), "some-session", "hello")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session setup")
 	assert.Nil(t, ch)
 	assert.Empty(t, sid)

@@ -2,6 +2,7 @@ package copilotcli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -49,7 +50,7 @@ func NewQueryHandler(client *Client) http.HandlerFunc {
 		result, err := client.QueryWithSession(r.Context(), req.SessionID, req.Prompt)
 		if err != nil {
 			status := http.StatusInternalServerError
-			if err == ErrNotConnected || err == ErrSidecarUnavailable {
+			if errors.Is(err, ErrNotConnected) || errors.Is(err, ErrSidecarUnavailable) {
 				status = http.StatusServiceUnavailable
 			}
 			writeError(w, status, err.Error())
@@ -97,7 +98,7 @@ func NewStreamHandler(client *Client) http.HandlerFunc {
 		events, sessionID, err := client.QueryStream(r.Context(), req.SessionID, req.Prompt)
 		if err != nil {
 			status := http.StatusInternalServerError
-			if err == ErrNotConnected || err == ErrSidecarUnavailable {
+			if errors.Is(err, ErrNotConnected) || errors.Is(err, ErrSidecarUnavailable) {
 				status = http.StatusServiceUnavailable
 			}
 			writeError(w, status, err.Error())

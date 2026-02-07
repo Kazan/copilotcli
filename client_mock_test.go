@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testMsgID = "msg-1"
+
 // ---------------------------------------------------------------------------
 // QueryWithSession — event handling paths
 // ---------------------------------------------------------------------------
@@ -28,16 +30,16 @@ func TestQueryWithSession_SuccessfulQuery(t *testing.T) {
 		},
 	}
 
-	sess.sendFn = func(_ context.Context, opts copilot.MessageOptions) (string, error) {
+	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		// Simulate async events after Send returns.
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("Hello, world!")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -58,12 +60,12 @@ func TestQueryWithSession_SessionError(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.SessionError,
 				Data: copilot.Data{Message: ptr("model overloaded")},
 			})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -83,12 +85,12 @@ func TestQueryWithSession_SessionErrorNilMessage(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.SessionError,
 				Data: copilot.Data{}, // Message is nil — should use default "session error"
 			})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -114,7 +116,7 @@ func TestQueryWithSession_ContextCancellation(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		// Don't emit any events — context will be canceled.
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -124,8 +126,8 @@ func TestQueryWithSession_ContextCancellation(t *testing.T) {
 
 	_, err := client.QueryWithSession(ctx, "", "hi")
 
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.True(t, abortCalled, "Abort should be called on context cancellation")
 }
 
@@ -160,13 +162,13 @@ func TestQueryWithSession_AssistantMessageNilContent(t *testing.T) {
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
 			// Content is nil — should not crash.
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -179,7 +181,7 @@ func TestQueryWithSession_AssistantMessageNilContent(t *testing.T) {
 func TestQueryWithSession_ResumeSession(t *testing.T) {
 	sess := &mockSDKSession{id: "existing-sess"}
 	mock := &mockSDKClient{
-		resumeFn: func(_ context.Context, sessionID string, cfg *copilot.ResumeSessionConfig) (sdkSession, error) {
+		resumeFn: func(_ context.Context, sessionID string, _ *copilot.ResumeSessionConfig) (sdkSession, error) {
 			assert.Equal(t, "existing-sess", sessionID)
 			return sess, nil
 		},
@@ -187,13 +189,13 @@ func TestQueryWithSession_ResumeSession(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("resumed response")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock, WithSystemMessage("You are helpful."), WithBYOK(ProviderOpenAI, "https://api.openai.com/v1", "sk-key"))
@@ -218,21 +220,21 @@ func TestQueryStream_SuccessfulStream(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{DeltaContent: ptr("Hello")},
 			})
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{DeltaContent: ptr(", world!")},
 			})
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("Hello, world!")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -266,16 +268,16 @@ func TestQueryStream_ErrorEvent(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{DeltaContent: ptr("partial")},
 			})
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.SessionError,
 				Data: copilot.Data{Message: ptr("rate limited")},
 			})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -284,14 +286,14 @@ func TestQueryStream_ErrorEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "stream-err", sid)
 
-	var collected []StreamEvent
+	collected := make([]StreamEvent, 0, 2)
 	for evt := range events {
 		collected = append(collected, evt)
 	}
 
 	require.Len(t, collected, 2, "should have delta + error")
 	assert.Equal(t, "partial", collected[0].DeltaContent)
-	assert.Error(t, collected[1].Error)
+	require.Error(t, collected[1].Error)
 	assert.Contains(t, collected[1].Error.Error(), "rate limited")
 }
 
@@ -305,19 +307,19 @@ func TestQueryStream_ErrorEventNilMessage(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.SessionError,
 				Data: copilot.Data{},
 			})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
 	events, _, err := client.QueryStream(t.Context(), "", "hi")
 	require.NoError(t, err)
 
-	var collected []StreamEvent
+	collected := make([]StreamEvent, 0, 1)
 	for evt := range events {
 		collected = append(collected, evt)
 	}
@@ -341,7 +343,7 @@ func TestQueryStream_SendError(t *testing.T) {
 	client := newTestClient(mock)
 	ch, sid, err := client.QueryStream(t.Context(), "", "hi")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sending message")
 	assert.Nil(t, ch)
 	assert.Empty(t, sid)
@@ -358,13 +360,13 @@ func TestQueryStream_ResumeSession(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("done")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock, WithSystemMessage("sys"))
@@ -393,25 +395,25 @@ func TestQueryStream_DeltaWithNilContent(t *testing.T) {
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
 			// Delta with nil DeltaContent — should be skipped.
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{},
 			})
 			// AssistantMessage with nil Content.
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
 	events, _, err := client.QueryStream(t.Context(), "", "hi")
 	require.NoError(t, err)
 
-	var collected []StreamEvent
+	collected := make([]StreamEvent, 0, 1)
 	for evt := range events {
 		collected = append(collected, evt)
 	}
@@ -498,7 +500,7 @@ func TestClient_Stop_WithError(t *testing.T) {
 
 	client := newTestClient(mock)
 	err := client.Stop()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "stop failed")
 	assert.False(t, client.IsConnected())
 }
@@ -535,7 +537,7 @@ func TestClient_DestroySession_Success(t *testing.T) {
 	client := newTestClient(mock)
 	err := client.DestroySession(t.Context(), "sess-to-delete")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "sess-to-delete", deleted)
 }
 
@@ -553,7 +555,7 @@ func TestNewHealthHandler_Healthy(t *testing.T) {
 	client := newTestClient(mock)
 	handler := NewHealthHandler(client)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/copilot/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/copilot/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler(rec, req)
@@ -580,13 +582,13 @@ func TestNewQueryHandler_Success(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("the answer is 42")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -618,13 +620,13 @@ func TestNewQueryHandler_WithSessionID(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("follow-up answer")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -658,21 +660,21 @@ func TestNewStreamHandler_SuccessfulStream(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{DeltaContent: ptr("chunk1")},
 			})
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessageDelta,
 				Data: copilot.Data{DeltaContent: ptr("chunk2")},
 			})
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("chunk1chunk2")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -704,12 +706,12 @@ func TestNewStreamHandler_ErrorEvent(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.SessionError,
 				Data: copilot.Data{Message: ptr("something broke")},
 			})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -737,13 +739,13 @@ func TestNewStreamHandler_WithSessionID(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("resumed stream")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -779,7 +781,7 @@ func TestGetOrCreateSession_CreateWithTools(t *testing.T) {
 	tool := ToolDefinition{
 		Name:        "search",
 		Description: "Search",
-		Handler:     func(args map[string]any) (string, error) { return "ok", nil },
+		Handler:     func(_ map[string]any) (string, error) { return "ok", nil },
 	}
 
 	client := newTestClient(mock, WithTools(tool), WithStreaming(true), WithModel("gpt-5"))
@@ -857,13 +859,13 @@ func TestQuery_DelegatesToQueryWithSession(t *testing.T) {
 	sess.sendFn = func(_ context.Context, opts copilot.MessageOptions) (string, error) {
 		assert.Equal(t, "hello world", opts.Prompt)
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("response")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	client := newTestClient(mock)
@@ -887,13 +889,13 @@ func TestNewQueryHandler_ErrSidecarUnavailable(t *testing.T) {
 
 	sess.sendFn = func(_ context.Context, _ copilot.MessageOptions) (string, error) {
 		go func() {
-			sess.emit(copilot.SessionEvent{
+			sess.emit(&copilot.SessionEvent{
 				Type: copilot.AssistantMessage,
 				Data: copilot.Data{Content: ptr("ok")},
 			})
-			sess.emit(copilot.SessionEvent{Type: copilot.SessionIdle})
+			sess.emit(&copilot.SessionEvent{Type: copilot.SessionIdle})
 		}()
-		return "msg-1", nil
+		return testMsgID, nil
 	}
 
 	// Simulate disconnected client to trigger ErrSidecarUnavailable in handler.
@@ -928,7 +930,7 @@ func TestNewStreamHandler_ErrSidecarUnavailable(t *testing.T) {
 func TestBuildSessionConfig_WithAllOptions(t *testing.T) {
 	tool := ToolDefinition{
 		Name:    "t1",
-		Handler: func(args map[string]any) (string, error) { return "", nil },
+		Handler: func(_ map[string]any) (string, error) { return "", nil },
 	}
 
 	client := newTestClient(&mockSDKClient{},
